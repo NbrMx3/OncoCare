@@ -1,4 +1,11 @@
 {
+  "name": "oncocare",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm install --prefix server --include=dev && npm --prefix server run prisma:generate && npm --prefix server run build",
+    "build": "npm --prefix server run prisma:generate && npm --prefix server run build",
+    "start": "npm --prefix server run start"
+  },
   "dependencies": {
     "pg": "^8.20.0"
   }
