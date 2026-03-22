@@ -1,0 +1,12 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "driver": "PostgreSQL",
+            "name": "oncoCare",
+            "connectString": "postgresql://neondb_owner:npg_9CRTQZ0xbAUV@ep-flat-voice-anlb4ry4-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        }
+    ]
+}
