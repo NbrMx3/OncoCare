@@ -13,7 +13,12 @@ type Patient = {
 };
 
 function App() {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+  const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+  const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : window.location.origin);
+  const api = axios.create({
+    baseURL: apiBaseUrl,
+    timeout: 10000,
+  });
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [email, setEmail] = useState("");
@@ -30,8 +35,8 @@ function App() {
   const fetchDashboardData = async (authToken: string) => {
     const headers = { Authorization: `Bearer ${authToken}` };
     const [patientsRes, alertsRes] = await Promise.all([
-      axios.get(`${apiBaseUrl}/api/patients`, { headers }),
-      axios.get(`${apiBaseUrl}/api/alerts`, { headers }),
+      api.get("/api/patients", { headers }),
+      api.get("/api/alerts", { headers }),
     ]);
     setPatients(patientsRes.data as Patient[]);
     setAlerts(alertsRes.data as Patient[]);
@@ -45,7 +50,7 @@ function App() {
     try {
       const data = { email, password };
       const endpoint = authMode === "login" ? "/api/login" : "/api/register";
-      const res = await axios.post(`${apiBaseUrl}${endpoint}`, data);
+      const res = await api.post(endpoint, data);
       const authToken = res.data.token as string;
       localStorage.setItem("token", authToken);
       setToken(authToken);
@@ -53,7 +58,11 @@ function App() {
       setMessage(authMode === "login" ? "Login successful." : "Registration successful.");
     } catch (error) {
       console.error(error);
-      setMessage(authMode === "login" ? "Login failed. Check your credentials." : "Registration failed.");
+      if (axios.isAxiosError(error) && !error.response) {
+        setMessage("Network error. Set VITE_API_BASE_URL to your backend URL.");
+      } else {
+        setMessage(authMode === "login" ? "Login failed. Check your credentials." : "Registration failed.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -71,8 +80,8 @@ function App() {
     setMessage("Saving patient...");
 
     try {
-      await axios.post(
-        `${apiBaseUrl}/api/patients`,
+      await api.post(
+        "/api/patients",
         {
           name: patientName,
           symptoms,
