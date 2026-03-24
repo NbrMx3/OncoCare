@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: oncocare-api
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start
+    autoDeploy: true

@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "npm run prisma:generate && npm run build",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "prisma:generate": "prisma generate",
     "build": "tsc -p tsconfig.json",
@@ -15,6 +16,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
