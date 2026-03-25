@@ -17,7 +17,7 @@
     "dev:dashboard": "nodemon --watch src --ext ts --exec ts-node src/modules/dashboard/server.ts",
     "prisma:generate": "prisma generate",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "npm run start:gateway",
     "start:all": "concurrently -k -n gateway,auth,patient,risk,monitoring,treatment,notification,dashboard -c blue,green,cyan,magenta,yellow,red,white,gray \"npm run start:gateway\" \"npm run start:auth\" \"npm run start:patient\" \"npm run start:risk\" \"npm run start:monitoring\" \"npm run start:treatment\" \"npm run start:notification\" \"npm run start:dashboard\"",
     "start:gateway": "node dist/gateway.js",
     "start:auth": "node dist/modules/auth/server.js",
