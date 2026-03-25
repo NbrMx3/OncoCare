@@ -104,6 +104,6 @@ app.patch(
 	},
 );
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
 	console.log(`Treatment module running on ${port}`);
 });

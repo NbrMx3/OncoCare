@@ -151,6 +151,6 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.all("/api/*path", proxyRequest);
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
 	console.log(`API gateway running on ${port}`);
 });

@@ -83,6 +83,6 @@ app.get(
 	},
 );
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
 	console.log(`Dashboard module running on ${port}`);
 });
