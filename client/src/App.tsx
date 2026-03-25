@@ -13,8 +13,9 @@ type Patient = {
 };
 
 function App() {
+  const defaultProdApiBaseUrl = "https://oncocare-api.onrender.com";
   const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
-  const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : window.location.origin);
+  const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : defaultProdApiBaseUrl);
   const api = axios.create({
     baseURL: apiBaseUrl,
     timeout: 10000,
@@ -60,6 +61,8 @@ function App() {
       console.error(error);
       if (axios.isAxiosError(error) && !error.response) {
         setMessage("Network error. Set VITE_API_BASE_URL to your backend URL.");
+      } else if (axios.isAxiosError(error) && error.response?.status === 405) {
+        setMessage("API method not allowed. Set VITE_API_BASE_URL to your Render backend URL.");
       } else {
         setMessage(authMode === "login" ? "Login failed. Check your credentials." : "Registration failed.");
       }
