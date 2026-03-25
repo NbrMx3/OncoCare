@@ -11,27 +11,103 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
 enum RiskLevel {
   LOW
   MEDIUM
   HIGH
-  CRITICAL
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  MISSED
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?
-  createdAt DateTime @default(now())
-  patients  Patient[]
+  id                 String        @id @default(uuid())
+  name               String
+  email              String        @unique
+  password           String?
+  role               Role
+  provider           String?
+  createdAt          DateTime      @default(now())
+  patients           Patient[]     @relation("UserPatients")
+  doctorAppointments Appointment[] @relation("DoctorAppointments")
+  auditLogs          AuditLog[]
 }
 
 model Patient {
-  id        String    @id @default(uuid())
-  name      String
-  symptoms  String
-  riskLevel RiskLevel
-  createdAt DateTime  @default(now())
+  id           String             @id @default(uuid())
+  userId       String?
+  name         String
+  age          Int
+  gender       String
+  phone        String
+  address      String
+  createdAt    DateTime           @default(now())
+  user         User?              @relation("UserPatients", fields: [userId], references: [id], onDelete: SetNull)
+  assessments  CancerAssessment[]
+  appointments Appointment[]
+  treatments   Treatment[]
+  notifications Notification[]
+}
+
+model CancerAssessment {
+  id             String    @id @default(uuid())
+  patientId      String
+  symptoms       String
+  riskLevel      RiskLevel
+  score          Float
+  recommendation String
+  createdAt      DateTime  @default(now())
+  patient        Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Appointment {
+  id        String            @id @default(uuid())
+  patientId String
+  doctorId  String
+  date      DateTime
+  status    AppointmentStatus
+  notes     String?
+  createdAt DateTime          @default(now())
+  patient   Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor    User              @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model Treatment {
+  id        String   @id @default(uuid())
+  patientId String
+  type      String
+  startDate DateTime
+  endDate   DateTime?
+  status    String
+  notes     String?
+  createdAt DateTime @default(now())
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  patientId String
+  message   String
+  type      String
+  status    String
+  createdAt DateTime @default(now())
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  details   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
