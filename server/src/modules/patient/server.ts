@@ -12,7 +12,7 @@ import { createModuleApp } from "../../common/app";
 dotenv.config();
 
 const app = createModuleApp("patient");
-const port = Number(process.env.PATIENT_PORT) || 5102;
+const port = Number(process.env.PORT) || Number(process.env.PATIENT_PORT) || 5102;
 
 app.post(
 	"/api/patients",

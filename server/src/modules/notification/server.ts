@@ -12,7 +12,7 @@ import { createModuleApp } from "../../common/app";
 dotenv.config();
 
 const app = createModuleApp("notification");
-const port = Number(process.env.NOTIFICATION_PORT) || 5106;
+const port = Number(process.env.PORT) || Number(process.env.NOTIFICATION_PORT) || 5106;
 
 app.post(
 	"/api/notifications",

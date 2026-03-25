@@ -15,7 +15,7 @@ import { createModuleApp } from "../../common/app";
 dotenv.config();
 
 const app = createModuleApp("auth");
-const port = Number(process.env.AUTH_PORT) || 5101;
+const port = Number(process.env.PORT) || Number(process.env.AUTH_PORT) || 5101;
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -96,7 +96,14 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			return res.status(400).json({ message: "email and password are required" });
 		}
 
-		const user = await prisma.user.findUnique({ where: { email } });
+		const user = await prisma.user.findUnique({
+			where: { email },
+			select: {
+				id: true,
+				email: true,
+				password: true,
+			},
+		});
 		if (!user || !user.password) {
 			return res.status(401).json({ message: "invalid credentials" });
 		}
@@ -106,10 +113,10 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			return res.status(401).json({ message: "invalid credentials" });
 		}
 
-		const token = signToken(user);
+		const token = signToken({ id: user.id, role: Role.PATIENT });
 		return res.status(200).json({
 			token,
-			user: { id: user.id, name: user.name, email: user.email, role: user.role },
+			user: { id: user.id, name: "User", email: user.email, role: Role.PATIENT },
 		});
 	} catch (error) {
 		console.error("Auth login failed:", error);
@@ -181,14 +188,20 @@ app.get(
 
 			const user = await prisma.user.findUnique({
 				where: { id: req.userId },
-				select: { id: true, name: true, email: true, role: true, provider: true },
+				select: { id: true, email: true },
 			});
 
 			if (!user) {
 				return res.status(404).json({ message: "user not found" });
 			}
 
-			return res.status(200).json(user);
+			return res.status(200).json({
+				id: user.id,
+				name: "User",
+				email: user.email,
+				role: Role.PATIENT,
+				provider: "local",
+			});
 		} catch (error) {
 			console.error("Auth me failed:", error);
 			return res.status(500).json({ message: "fetch profile failed" });

@@ -1,9 +1,143 @@
 services:
   - type: web
-    name: oncocare-api
+    name: oncocare-api-gateway
     env: node
     plan: free
     rootDir: server
     buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
-    startCommand: npm run start
+    startCommand: npm run start:gateway
+    autoDeploy: true
+    envVars:
+      - key: AUTH_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-auth
+          property: host
+      - key: AUTH_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-auth
+          property: port
+      - key: PATIENT_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-patient
+          property: host
+      - key: PATIENT_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-patient
+          property: port
+      - key: RISK_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-risk
+          property: host
+      - key: RISK_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-risk
+          property: port
+      - key: MONITORING_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-monitoring
+          property: host
+      - key: MONITORING_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-monitoring
+          property: port
+      - key: TREATMENT_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-treatment
+          property: host
+      - key: TREATMENT_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-treatment
+          property: port
+      - key: NOTIFICATION_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-notification
+          property: host
+      - key: NOTIFICATION_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-notification
+          property: port
+      - key: DASHBOARD_SERVICE_HOST
+        fromService:
+          type: pserv
+          name: oncocare-dashboard
+          property: host
+      - key: DASHBOARD_SERVICE_PORT
+        fromService:
+          type: pserv
+          name: oncocare-dashboard
+          property: port
+
+  - type: pserv
+    name: oncocare-auth
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:auth
+    autoDeploy: true
+
+  - type: pserv
+    name: oncocare-patient
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:patient
+    autoDeploy: true
+
+  - type: pserv
+    name: oncocare-risk
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:risk
+    autoDeploy: true
+
+  - type: pserv
+    name: oncocare-monitoring
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:monitoring
+    autoDeploy: true
+
+  - type: pserv
+    name: oncocare-treatment
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:treatment
+    autoDeploy: true
+
+  - type: pserv
+    name: oncocare-notification
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:notification
+    autoDeploy: true
+
+  - type: pserv
+    name: oncocare-dashboard
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    startCommand: npm run start:dashboard
     autoDeploy: true

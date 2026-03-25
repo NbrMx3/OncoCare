@@ -12,7 +12,7 @@ import { createModuleApp } from "../../common/app";
 dotenv.config();
 
 const app = createModuleApp("dashboard");
-const port = Number(process.env.DASHBOARD_PORT) || 5107;
+const port = Number(process.env.PORT) || Number(process.env.DASHBOARD_PORT) || 5107;
 
 app.get(
 	"/api/dashboard/stats",

@@ -13,7 +13,7 @@ import { predictRisk } from "../../common/risk";
 dotenv.config();
 
 const app = createModuleApp("risk");
-const port = Number(process.env.RISK_PORT) || 5103;
+const port = Number(process.env.PORT) || Number(process.env.RISK_PORT) || 5103;
 
 app.post(
 	"/api/assessments",

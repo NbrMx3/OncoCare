@@ -4,19 +4,99 @@ import express, { Request, Response } from "express";
 dotenv.config();
 
 const app = express();
-const port = Number(process.env.GATEWAY_PORT) || 5000;
+const port = Number(process.env.PORT) || Number(process.env.GATEWAY_PORT) || 5000;
 
 app.use(express.json());
 
+const serviceUrl = (
+	baseUrlEnv: string | undefined,
+	hostEnv: string | undefined,
+	portEnv: string | undefined,
+	fallbackPort: number,
+) => {
+	if (baseUrlEnv) {
+		return baseUrlEnv;
+	}
+	if (hostEnv) {
+		const resolvedPort = portEnv ? `:${portEnv}` : "";
+		return `http://${hostEnv}${resolvedPort}`;
+	}
+	return `http://localhost:${fallbackPort}`;
+};
+
 const moduleTargets: Array<{ prefix: string; target: string }> = [
-	{ prefix: "/api/auth", target: `http://localhost:${process.env.AUTH_PORT || 5101}` },
-	{ prefix: "/api/patients", target: `http://localhost:${process.env.PATIENT_PORT || 5102}` },
-	{ prefix: "/api/assessments", target: `http://localhost:${process.env.RISK_PORT || 5103}` },
-	{ prefix: "/api/appointments", target: `http://localhost:${process.env.MONITORING_PORT || 5104}` },
-	{ prefix: "/api/monitoring", target: `http://localhost:${process.env.MONITORING_PORT || 5104}` },
-	{ prefix: "/api/treatments", target: `http://localhost:${process.env.TREATMENT_PORT || 5105}` },
-	{ prefix: "/api/notifications", target: `http://localhost:${process.env.NOTIFICATION_PORT || 5106}` },
-	{ prefix: "/api/dashboard", target: `http://localhost:${process.env.DASHBOARD_PORT || 5107}` },
+	{
+		prefix: "/api/auth",
+		target: serviceUrl(
+			process.env.AUTH_BASE_URL,
+			process.env.AUTH_SERVICE_HOST,
+			process.env.AUTH_SERVICE_PORT,
+			5101,
+		),
+	},
+	{
+		prefix: "/api/patients",
+		target: serviceUrl(
+			process.env.PATIENT_BASE_URL,
+			process.env.PATIENT_SERVICE_HOST,
+			process.env.PATIENT_SERVICE_PORT,
+			5102,
+		),
+	},
+	{
+		prefix: "/api/assessments",
+		target: serviceUrl(
+			process.env.RISK_BASE_URL,
+			process.env.RISK_SERVICE_HOST,
+			process.env.RISK_SERVICE_PORT,
+			5103,
+		),
+	},
+	{
+		prefix: "/api/appointments",
+		target: serviceUrl(
+			process.env.MONITORING_BASE_URL,
+			process.env.MONITORING_SERVICE_HOST,
+			process.env.MONITORING_SERVICE_PORT,
+			5104,
+		),
+	},
+	{
+		prefix: "/api/monitoring",
+		target: serviceUrl(
+			process.env.MONITORING_BASE_URL,
+			process.env.MONITORING_SERVICE_HOST,
+			process.env.MONITORING_SERVICE_PORT,
+			5104,
+		),
+	},
+	{
+		prefix: "/api/treatments",
+		target: serviceUrl(
+			process.env.TREATMENT_BASE_URL,
+			process.env.TREATMENT_SERVICE_HOST,
+			process.env.TREATMENT_SERVICE_PORT,
+			5105,
+		),
+	},
+	{
+		prefix: "/api/notifications",
+		target: serviceUrl(
+			process.env.NOTIFICATION_BASE_URL,
+			process.env.NOTIFICATION_SERVICE_HOST,
+			process.env.NOTIFICATION_SERVICE_PORT,
+			5106,
+		),
+	},
+	{
+		prefix: "/api/dashboard",
+		target: serviceUrl(
+			process.env.DASHBOARD_BASE_URL,
+			process.env.DASHBOARD_SERVICE_HOST,
+			process.env.DASHBOARD_SERVICE_PORT,
+			5107,
+		),
+	},
 ];
 
 const pickTarget = (path: string): string | undefined => {
@@ -69,7 +149,7 @@ app.get("/health", (_req: Request, res: Response) => {
 	res.status(200).json({ ok: true, service: "api-gateway" });
 });
 
-app.all("/api/*", proxyRequest);
+app.all("/api/*path", proxyRequest);
 
 app.listen(port, () => {
 	console.log(`API gateway running on ${port}`);
