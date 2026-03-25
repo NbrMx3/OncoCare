@@ -1,0 +1,18 @@
+{
+  "name": "OncoCare AI",
+  "short_name": "OncoCare",
+  "description": "OncoCare cancer patient management and risk monitoring platform",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#061f3f",
+  "theme_color": "#0b2c52",
+  "icons": [
+    {
+      "src": "/oncocare_ai_logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

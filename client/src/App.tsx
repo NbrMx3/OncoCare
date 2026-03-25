@@ -2,14 +2,23 @@ import { useEffect, useState, type FormEvent } from "react";
 import axios from "axios";
 import "./App.css";
 
-type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
 type Patient = {
   id: string;
   name: string;
+  age: number;
+  gender: string;
+  phone: string;
+  address: string;
+  createdAt: string;
+};
+
+type RiskAlert = {
+  id: string;
+  name: string;
   symptoms: string;
   riskLevel: RiskLevel;
-  createdAt: string;
 };
 
 function App() {
@@ -28,19 +37,29 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [patientName, setPatientName] = useState("");
-  const [symptoms, setSymptoms] = useState("");
-  const [riskLevel, setRiskLevel] = useState<RiskLevel>("LOW");
+  const [patientAge, setPatientAge] = useState("");
+  const [patientGender, setPatientGender] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
+  const [patientAddress, setPatientAddress] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [alerts, setAlerts] = useState<Patient[]>([]);
+  const [alerts, setAlerts] = useState<RiskAlert[]>([]);
 
   const fetchDashboardData = async (authToken: string) => {
     const headers = { Authorization: `Bearer ${authToken}` };
-    const [patientsRes, alertsRes] = await Promise.all([
+    const [patientsRes, flagsRes] = await Promise.all([
       api.get("/api/patients", { headers }),
-      api.get("/api/alerts", { headers }),
+      api.get("/api/monitoring/flags", { headers }),
     ]);
     setPatients(patientsRes.data as Patient[]);
-    setAlerts(alertsRes.data as Patient[]);
+
+    const highRisk = ((flagsRes.data as { highRiskAssessments?: Array<{ id: string; symptoms: string; riskLevel: RiskLevel; patient?: { name?: string } }> }).highRiskAssessments ?? [])
+      .map((row) => ({
+        id: row.id,
+        name: row.patient?.name ?? "Unknown patient",
+        symptoms: row.symptoms,
+        riskLevel: row.riskLevel,
+      }));
+    setAlerts(highRisk);
   };
 
   const handleAuth = async (event: FormEvent<HTMLFormElement>) => {
@@ -49,8 +68,10 @@ function App() {
     setIsSubmitting(true);
 
     try {
-      const data = { email, password };
-      const endpoint = authMode === "login" ? "/api/login" : "/api/register";
+      const data = authMode === "login"
+        ? { email, password }
+        : { email, password, name: email.split("@")[0] || "Patient" };
+      const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
       const res = await api.post(endpoint, data);
       const authToken = res.data.token as string;
       localStorage.setItem("token", authToken);
@@ -87,16 +108,20 @@ function App() {
         "/api/patients",
         {
           name: patientName,
-          symptoms,
-          riskLevel,
+          age: Number(patientAge),
+          gender: patientGender,
+          phone: patientPhone,
+          address: patientAddress,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
       setPatientName("");
-      setSymptoms("");
-      setRiskLevel("LOW");
+      setPatientAge("");
+      setPatientGender("");
+      setPatientPhone("");
+      setPatientAddress("");
       await fetchDashboardData(token);
       setMessage("Patient saved.");
     } catch (error) {
@@ -233,26 +258,41 @@ function App() {
                 />
 
                 <label htmlFor="symptoms">Symptoms</label>
-                <textarea
+                <input
                   id="symptoms"
-                  value={symptoms}
-                  onChange={(e) => setSymptoms(e.target.value)}
-                  placeholder="Describe symptoms"
-                  rows={4}
+                  value={patientAge}
+                  onChange={(e) => setPatientAge(e.target.value)}
+                  placeholder="Age"
+                  type="number"
                   required
                 />
 
-                <label htmlFor="risk-level">Risk Level</label>
-                <select
-                  id="risk-level"
-                  value={riskLevel}
-                  onChange={(e) => setRiskLevel(e.target.value as RiskLevel)}
-                >
-                  <option value="LOW">LOW</option>
-                  <option value="MEDIUM">MEDIUM</option>
-                  <option value="HIGH">HIGH</option>
-                  <option value="CRITICAL">CRITICAL</option>
-                </select>
+                <label htmlFor="gender">Gender</label>
+                <input
+                  id="gender"
+                  value={patientGender}
+                  onChange={(e) => setPatientGender(e.target.value)}
+                  placeholder="Gender"
+                  required
+                />
+
+                <label htmlFor="phone">Phone</label>
+                <input
+                  id="phone"
+                  value={patientPhone}
+                  onChange={(e) => setPatientPhone(e.target.value)}
+                  placeholder="Phone"
+                  required
+                />
+
+                <label htmlFor="address">Address</label>
+                <input
+                  id="address"
+                  value={patientAddress}
+                  onChange={(e) => setPatientAddress(e.target.value)}
+                  placeholder="Address"
+                  required
+                />
 
                 <button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? "Saving..." : "Save Patient"}
@@ -269,10 +309,8 @@ function App() {
                   patients.map((patient) => (
                     <li key={patient.id} className="list-item">
                       <p className="item-title">{patient.name}</p>
-                      <p>{patient.symptoms}</p>
-                      <span className={`risk-badge ${patient.riskLevel.toLowerCase()}`}>
-                        {patient.riskLevel}
-                      </span>
+                      <p>{patient.age} years, {patient.gender}</p>
+                      <p>{patient.phone}</p>
                     </li>
                   ))
                 )}
