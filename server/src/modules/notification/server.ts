@@ -8,11 +8,12 @@ import {
 	authorizeRoles,
 } from "../../common/auth";
 import { createModuleApp } from "../../common/app";
+import { resolveModulePort } from "../../common/ports";
 
 dotenv.config();
 
 const app = createModuleApp("notification");
-const port = Number(process.env.PORT) || Number(process.env.NOTIFICATION_PORT) || 5106;
+const port = resolveModulePort("NOTIFICATION_PORT", 5106);
 
 app.post(
 	"/api/notifications",

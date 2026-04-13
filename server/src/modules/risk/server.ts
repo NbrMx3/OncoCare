@@ -9,11 +9,12 @@ import {
 } from "../../common/auth";
 import { createModuleApp } from "../../common/app";
 import { predictRisk } from "../../common/risk";
+import { resolveModulePort } from "../../common/ports";
 
 dotenv.config();
 
 const app = createModuleApp("risk");
-const port = Number(process.env.PORT) || Number(process.env.RISK_PORT) || 5103;
+const port = resolveModulePort("RISK_PORT", 5103);
 
 app.post(
 	"/api/assessments",

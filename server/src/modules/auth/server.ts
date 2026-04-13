@@ -11,11 +11,12 @@ import {
 	signToken,
 } from "../../common/auth";
 import { createModuleApp } from "../../common/app";
+import { resolveModulePort } from "../../common/ports";
 
 dotenv.config();
 
 const app = createModuleApp("auth");
-const port = Number(process.env.PORT) || Number(process.env.AUTH_PORT) || 5101;
+const port = resolveModulePort("AUTH_PORT", 5101);
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;

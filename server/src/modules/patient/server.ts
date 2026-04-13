@@ -8,11 +8,12 @@ import {
 	authorizeRoles,
 } from "../../common/auth";
 import { createModuleApp } from "../../common/app";
+import { resolveModulePort } from "../../common/ports";
 
 dotenv.config();
 
 const app = createModuleApp("patient");
-const port = Number(process.env.PORT) || Number(process.env.PATIENT_PORT) || 5102;
+const port = resolveModulePort("PATIENT_PORT", 5102);
 
 app.post(
 	"/api/patients",
