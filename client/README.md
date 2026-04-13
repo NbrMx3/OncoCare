@@ -1,3 +1,27 @@
+# OncoCare (Client)
+
+## Local development
+
+1) Start the API gateway + module services (auth, patient, monitoring, etc.):
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+2) Start the Vite client:
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+The client proxies `/api/*` to `http://localhost:5000` (the gateway). If the backend isn’t running, Vite will return `502 Bad Gateway`.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import cors from "cors";
 import express, { Request, Response } from "express";
 
 dotenv.config();
@@ -6,6 +7,7 @@ dotenv.config();
 const app = express();
 const port = Number(process.env.PORT) || Number(process.env.GATEWAY_PORT) || 5000;
 
+app.use(cors());
 app.use(express.json());
 
 const serviceUrl = (
