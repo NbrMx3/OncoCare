@@ -1,3 +1,4 @@
+
 import dotenv from "dotenv";
 import { Response } from "express";
 import { AppointmentStatus, RiskLevel, Role } from "@prisma/client";

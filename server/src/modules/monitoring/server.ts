@@ -110,7 +110,25 @@ app.get(
 	"/api/monitoring/flags",
 	authenticateToken,
 	authorizeRoles([Role.ADMIN, Role.DOCTOR]),
-	async (req: AuthenticatedRequest, res: Response) => {
+	async (req: AuthenticatedRequest, res: Response) => {	cd /d C:\Users\hp\Desktop\OncoCare
+	npm install
+	npm install --prefix server
+	npm install --prefix client
+	npm --prefix server run build
+	npm --prefix client run build
+	git status
+	git add server\src\modules\auth\server.ts server\src\modules\patient\server.ts
+	git commit -m "Fix 403 on patient create via correct roles" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+	git push origin main	cd /d C:\Users\hp\Desktop\OncoCare
+	npm install
+	npm install --prefix server
+	npm install --prefix client
+	npm --prefix server run build
+	npm --prefix client run build
+	git status
+	git add server\src\modules\auth\server.ts server\src\modules\patient\server.ts
+	git commit -m "Fix 403 on patient create via correct roles" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+	git push origin main
 		try {
 			if (!req.userId || !req.role) {
 				return res.status(401).json({ message: "unauthorized" });
