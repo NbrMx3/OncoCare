@@ -18,9 +18,12 @@ const port = resolveModulePort("PATIENT_PORT", 5102);
 app.post(
 	"/api/patients",
 	authenticateToken,
-	authorizeRoles([Role.ADMIN, Role.DOCTOR]),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
+			if (!req.userId || !req.role) {
+				return res.status(401).json({ message: "unauthorized" });
+			}
+
 			const { userId, name, age, gender, phone, address } = req.body as {
 				userId?: string;
 				name?: string;
@@ -36,9 +39,19 @@ app.post(
 				});
 			}
 
+			if (req.role === Role.PATIENT && userId && userId !== req.userId) {
+				return res.status(403).json({ message: "forbidden" });
+			}
+
+			if (![Role.ADMIN, Role.DOCTOR, Role.PATIENT].includes(req.role)) {
+				return res.status(403).json({ message: "forbidden" });
+			}
+
+			const resolvedUserId = req.role === Role.PATIENT ? req.userId : (userId ?? null);
+
 			const patient = await prisma.patient.create({
 				data: {
-					userId: userId ?? null,
+					userId: resolvedUserId,
 					name,
 					age,
 					gender,
@@ -47,15 +60,13 @@ app.post(
 				},
 			});
 
-			if (req.userId) {
-				await prisma.auditLog.create({
-					data: {
-						action: "PATIENT_CREATE",
-						userId: req.userId,
-						details: `Created patient ${patient.id}`,
-					},
-				});
-			}
+			await prisma.auditLog.create({
+				data: {
+					action: "PATIENT_CREATE",
+					userId: req.userId,
+					details: `Created patient ${patient.id}`,
+				},
+			});
 
 			return res.status(201).json(patient);
 		} catch (error) {

@@ -102,7 +102,10 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			select: {
 				id: true,
 				email: true,
+				name: true,
 				password: true,
+				role: true,
+				provider: true,
 			},
 		});
 		if (!user || !user.password) {
@@ -114,10 +117,16 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			return res.status(401).json({ message: "invalid credentials" });
 		}
 
-		const token = signToken({ id: user.id, role: Role.PATIENT });
+		const token = signToken({ id: user.id, role: user.role });
 		return res.status(200).json({
 			token,
-			user: { id: user.id, name: "User", email: user.email, role: Role.PATIENT },
+			user: {
+				id: user.id,
+				name: user.name,
+				email: user.email,
+				role: user.role,
+				provider: user.provider,
+			},
 		});
 	} catch (error) {
 		console.error("Auth login failed:", error);
@@ -189,7 +198,7 @@ app.get(
 
 			const user = await prisma.user.findUnique({
 				where: { id: req.userId },
-				select: { id: true, email: true },
+				select: { id: true, email: true, name: true, role: true, provider: true },
 			});
 
 			if (!user) {
@@ -198,10 +207,10 @@ app.get(
 
 			return res.status(200).json({
 				id: user.id,
-				name: "User",
+				name: user.name,
 				email: user.email,
-				role: Role.PATIENT,
-				provider: "local",
+				role: user.role,
+				provider: user.provider,
 			});
 		} catch (error) {
 			console.error("Auth me failed:", error);
