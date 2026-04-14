@@ -117,16 +117,43 @@ function App() {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
+
       setPatientName("");
       setPatientAge("");
       setPatientGender("");
       setPatientPhone("");
       setPatientAddress("");
-      await fetchDashboardData(token);
-      setMessage("Patient saved.");
+
+      try {
+        await fetchDashboardData(token);
+        setMessage("Patient saved.");
+      } catch (refreshError) {
+        console.error(refreshError);
+        setMessage("Patient saved, but dashboard refresh failed. Try Refresh.");
+      }
     } catch (error) {
       console.error(error);
-      setMessage("Could not save patient.");
+
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
+
+        if (!error.response) {
+          setMessage("Network error. Set VITE_API_BASE_URL to your backend URL.");
+        } else if (status === 400) {
+          setMessage(apiMessage || "Invalid patient details.");
+        } else if (status === 401) {
+          setMessage("Session expired. Please sign in again.");
+        } else if (status === 403) {
+          setMessage("Forbidden: your account cannot save patients.");
+        } else if (status === 502) {
+          setMessage("Backend unavailable (502). Try again in a moment.");
+        } else {
+          setMessage(apiMessage || `Could not save patient (HTTP ${status}).`);
+        }
+      } else {
+        setMessage("Could not save patient.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -257,9 +284,9 @@ function App() {
                   required
                 />
 
-                <label htmlFor="symptoms">Symptoms</label>
+                <label htmlFor="patient-age">Age</label>
                 <input
-                  id="symptoms"
+                  id="patient-age"
                   value={patientAge}
                   onChange={(e) => setPatientAge(e.target.value)}
                   placeholder="Age"
