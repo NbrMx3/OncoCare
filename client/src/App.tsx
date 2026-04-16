@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import axios from "axios";
+import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import "./App.css";
 
 type Role = "ADMIN" | "DOCTOR" | "PATIENT";
@@ -45,13 +45,41 @@ type DashboardStats = {
 };
 
 function App() {
-  const defaultProdApiBaseUrl = "https://oncocare-api.onrender.com";
+  const defaultProdApiBaseUrl = "https://oncocare-api-gateway.onrender.com";
   const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
-  const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? "" : defaultProdApiBaseUrl);
+  const fallbackApiBaseUrl = configuredApiBaseUrl || defaultProdApiBaseUrl;
+  const apiBaseUrl = import.meta.env.DEV ? "" : fallbackApiBaseUrl;
   const api = axios.create({
     baseURL: apiBaseUrl,
     timeout: 10000,
   });
+
+  const requestWithFallback = async <T = unknown>(
+    config: AxiosRequestConfig,
+  ): Promise<AxiosResponse<T>> => {
+    try {
+      return await api.request<T>(config);
+    } catch (error) {
+      if (!import.meta.env.DEV || configuredApiBaseUrl) {
+        throw error;
+      }
+
+      if (!axios.isAxiosError(error)) {
+        throw error;
+      }
+
+      const shouldRetryOnFallback = !error.response || error.response.status === 502;
+      if (!shouldRetryOnFallback) {
+        throw error;
+      }
+
+      return axios.request<T>({
+        ...config,
+        baseURL: fallbackApiBaseUrl,
+        timeout: 10000,
+      });
+    }
+  };
 
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -79,12 +107,16 @@ function App() {
 
   const fetchDashboardData = async (authToken: string) => {
     const headers = { Authorization: `Bearer ${authToken}` };
-    const meRes = await api.get("/api/auth/me", { headers });
+    const meRes = await requestWithFallback<UserProfile>({
+      method: "get",
+      url: "/api/auth/me",
+      headers,
+    });
     const user = meRes.data as UserProfile;
 
     const [patientsRes, flagsRes] = await Promise.all([
-      api.get("/api/patients", { headers }),
-      api.get("/api/monitoring/flags", { headers }),
+      requestWithFallback<Patient[]>({ method: "get", url: "/api/patients", headers }),
+      requestWithFallback({ method: "get", url: "/api/monitoring/flags", headers }),
     ]);
 
     setCurrentUser(user);
@@ -108,7 +140,11 @@ function App() {
     setAlerts(highRisk);
 
     if (user.role === "DOCTOR" || user.role === "ADMIN") {
-      const statsRes = await api.get("/api/dashboard/stats", { headers });
+      const statsRes = await requestWithFallback<DashboardStats>({
+        method: "get",
+        url: "/api/dashboard/stats",
+        headers,
+      });
       setDashboardStats(statsRes.data as DashboardStats);
     } else {
       setDashboardStats(null);
@@ -131,7 +167,11 @@ function App() {
             ...(role === "DOCTOR" && profession.trim() ? { profession: profession.trim() } : {}),
           };
       const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const res = await api.post(endpoint, data);
+      const res = await requestWithFallback<{ token: string; user?: UserProfile }>({
+        method: "post",
+        url: endpoint,
+        data,
+      });
       const authToken = res.data.token as string;
       const newUser = res.data.user as UserProfile | undefined;
       localStorage.setItem("token", authToken);
@@ -148,6 +188,8 @@ function App() {
       console.error(error);
       if (axios.isAxiosError(error) && !error.response) {
         setMessage("Network error. Set VITE_API_BASE_URL to your backend URL.");
+      } else if (axios.isAxiosError(error) && error.response?.status === 502) {
+        setMessage("Backend unavailable (502). Start backend with: cd server && node server.js");
       } else if (axios.isAxiosError(error) && error.response?.status === 405) {
         setMessage("API method not allowed. Set VITE_API_BASE_URL to your Render backend URL.");
       } else {
@@ -170,19 +212,18 @@ function App() {
     setMessage("Saving patient...");
 
     try {
-      await api.post(
-        "/api/patients",
-        {
+      await requestWithFallback({
+        method: "post",
+        url: "/api/patients",
+        data: {
           name: patientName,
           age: Number(patientAge),
           gender: patientGender,
           phone: patientPhone,
           address: patientAddress,
         },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       setPatientName("");
       setPatientAge("");
@@ -258,7 +299,12 @@ function App() {
         ...(currentUser?.role === "DOCTOR" ? { profession: profileProfession.trim() || null } : {}),
       };
 
-      const response = await api.put("/api/auth/me", payload, { headers });
+      const response = await requestWithFallback<UserProfile>({
+        method: "put",
+        url: "/api/auth/me",
+        data: payload,
+        headers,
+      });
       const updatedUser = response.data as UserProfile;
       setCurrentUser(updatedUser);
       setProfileName(updatedUser.name);

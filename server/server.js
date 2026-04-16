@@ -1,4 +1,4 @@
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
@@ -14,11 +14,32 @@ const services = [
   { name: "dashboard", entry: "modules/dashboard/server.js" },
 ];
 
-const missing = services.filter((svc) => !fs.existsSync(path.join(distRoot, svc.entry)));
+const missingCompiledFiles = () =>
+  services.filter((svc) => !fs.existsSync(path.join(distRoot, svc.entry)));
+
+const missing = missingCompiledFiles();
 if (missing.length > 0) {
-  console.error("Missing compiled server files. Run: npm run build");
-  missing.forEach((svc) => console.error(`- dist/${svc.entry}`));
-  process.exit(1);
+  console.warn("Missing compiled server files. Running npm run build...");
+  missing.forEach((svc) => console.warn(`- dist/${svc.entry}`));
+
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  const build = spawnSync(npmCmd, ["run", "build"], {
+    cwd: __dirname,
+    stdio: "inherit",
+    env: process.env,
+  });
+
+  if (build.status !== 0) {
+    console.error("Build failed. Could not start services.");
+    process.exit(build.status ?? 1);
+  }
+
+  const stillMissing = missingCompiledFiles();
+  if (stillMissing.length > 0) {
+    console.error("Compiled files are still missing after build:");
+    stillMissing.forEach((svc) => console.error(`- dist/${svc.entry}`));
+    process.exit(1);
+  }
 }
 
 const children = services.map((svc) => {
