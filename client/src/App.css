@@ -215,6 +215,18 @@
   grid-column: span 4;
 }
 
+.patient-dashboard-grid .profile-panel {
+  grid-column: span 4;
+}
+
+.patient-main-panel {
+  grid-column: span 8;
+}
+
+.patient-alerts-panel {
+  grid-column: span 12;
+}
+
 h2 {
   margin-top: 0;
   margin-bottom: 10px;

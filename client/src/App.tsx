@@ -292,6 +292,8 @@ function App() {
 
   const patientTotal = dashboardStats?.patientCount ?? dashboardStats?.totalPatients ?? patients.length;
   const isDoctor = currentUser?.role === "DOCTOR";
+  const isAdmin = currentUser?.role === "ADMIN";
+  const isDoctorWorkspace = isDoctor || isAdmin;
   const profileTitle = isDoctor ? "Doctor Profile" : "Profile";
   const dashboardTitle = currentUser?.role === "ADMIN"
     ? "Administrator Dashboard"
@@ -422,11 +424,9 @@ function App() {
               </p>
               <h1>{dashboardTitle}</h1>
               <p className="subtitle">
-                {isDoctor
-                  ? "Track your caseload, update your profile, and review active patients in one place."
-                  : currentUser?.role === "ADMIN"
-                    ? "Manage the full care environment with live patient and assessment data."
-                    : "Review your patient records and care alerts from a secure workspace."}
+                {isDoctorWorkspace
+                  ? "Track your caseload, manage patient records, and monitor critical cases in one clinical workspace."
+                  : "Review your own care records, profile details, and high-risk alerts in a patient-only dashboard."}
               </p>
             </div>
 
@@ -438,7 +438,7 @@ function App() {
             </div>
           </section>
 
-          {dashboardStats && (
+          {isDoctorWorkspace && dashboardStats && (
             <section className="stat-grid" aria-label="Doctor statistics">
               <article className="stat-card accent">
                 <span>Patients</span>
@@ -463,51 +463,51 @@ function App() {
             </section>
           )}
 
-          <div className="dashboard-grid">
-            <article className="panel profile-panel">
-              <h2>{profileTitle}</h2>
-              <form onSubmit={handleUpdateProfile} className="auth-form">
-                <label htmlFor="profile-name">Name</label>
-                <input
-                  id="profile-name"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  placeholder="Full name"
-                  required
-                />
+          {isDoctorWorkspace ? (
+            <div className="dashboard-grid" aria-label="Doctor and admin dashboard">
+              <article className="panel profile-panel">
+                <h2>{profileTitle}</h2>
+                <form onSubmit={handleUpdateProfile} className="auth-form">
+                  <label htmlFor="profile-name">Name</label>
+                  <input
+                    id="profile-name"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    placeholder="Full name"
+                    required
+                  />
 
-                <label htmlFor="profile-email">Email</label>
-                <input
-                  id="profile-email"
-                  value={currentUser?.email ?? ""}
-                  readOnly
-                  disabled
-                />
+                  <label htmlFor="profile-email">Email</label>
+                  <input
+                    id="profile-email"
+                    value={currentUser?.email ?? ""}
+                    readOnly
+                    disabled
+                  />
 
-                <label htmlFor="profile-role">Role</label>
-                <input
-                  id="profile-role"
-                  value={currentUser?.role ?? "PATIENT"}
-                  readOnly
-                  disabled
-                />
+                  <label htmlFor="profile-role">Role</label>
+                  <input
+                    id="profile-role"
+                    value={currentUser?.role ?? "PATIENT"}
+                    readOnly
+                    disabled
+                  />
 
-                <label htmlFor="profile-profession">Profession</label>
-                <input
-                  id="profile-profession"
-                  value={profileProfession}
-                  onChange={(e) => setProfileProfession(e.target.value)}
-                  placeholder={isDoctor ? "Doctor profession" : "Not applicable for this role"}
-                  disabled={!isDoctor}
-                />
+                  <label htmlFor="profile-profession">Profession</label>
+                  <input
+                    id="profile-profession"
+                    value={profileProfession}
+                    onChange={(e) => setProfileProfession(e.target.value)}
+                    placeholder={isDoctor ? "Doctor profession" : "Not applicable for this role"}
+                    disabled={!isDoctor}
+                  />
 
-                <button type="submit" disabled={isSavingProfile}>
-                  {isSavingProfile ? "Saving..." : "Save Profile"}
-                </button>
-              </form>
-            </article>
+                  <button type="submit" disabled={isSavingProfile}>
+                    {isSavingProfile ? "Saving..." : "Save Profile"}
+                  </button>
+                </form>
+              </article>
 
-            {currentUser?.role !== "PATIENT" && (
               <article className="panel">
                 <h2>Patient Form</h2>
                 <form onSubmit={handleCreatePatient} className="auth-form">
@@ -562,44 +562,117 @@ function App() {
                   </button>
                 </form>
               </article>
-            )}
 
-            <article className="panel wide-panel">
-              <h2>Patients</h2>
-              <ul className="list">
-                {patients.length === 0 ? (
-                  <li className="empty">No patients yet.</li>
-                ) : (
-                  patients.map((patient) => (
-                    <li key={patient.id} className="list-item">
-                      <p className="item-title">{patient.name}</p>
-                      <p>{patient.age} years, {patient.gender}</p>
-                      <p>{patient.phone}</p>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </article>
+              <article className="panel wide-panel">
+                <h2>Patients</h2>
+                <ul className="list">
+                  {patients.length === 0 ? (
+                    <li className="empty">No patients yet.</li>
+                  ) : (
+                    patients.map((patient) => (
+                      <li key={patient.id} className="list-item">
+                        <p className="item-title">{patient.name}</p>
+                        <p>{patient.age} years, {patient.gender}</p>
+                        <p>{patient.phone}</p>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
 
-            <article className="panel alerts-panel">
-              <h2>Alerts</h2>
-              <ul className="list">
-                {alerts.length === 0 ? (
-                  <li className="empty">No high-risk alerts.</li>
-                ) : (
-                  alerts.map((alert) => (
-                    <li key={alert.id} className="list-item alert-item">
-                      <p className="item-title">{alert.name}</p>
-                      <p>{alert.symptoms}</p>
-                      <span className={`risk-badge ${alert.riskLevel.toLowerCase()}`}>
-                        {alert.riskLevel}
-                      </span>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </article>
-          </div>
+              <article className="panel alerts-panel">
+                <h2>Alerts</h2>
+                <ul className="list">
+                  {alerts.length === 0 ? (
+                    <li className="empty">No high-risk alerts.</li>
+                  ) : (
+                    alerts.map((alert) => (
+                      <li key={alert.id} className="list-item alert-item">
+                        <p className="item-title">{alert.name}</p>
+                        <p>{alert.symptoms}</p>
+                        <span className={`risk-badge ${alert.riskLevel.toLowerCase()}`}>
+                          {alert.riskLevel}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
+            </div>
+          ) : (
+            <div className="dashboard-grid patient-dashboard-grid" aria-label="Patient dashboard">
+              <article className="panel profile-panel">
+                <h2>My Profile</h2>
+                <form onSubmit={handleUpdateProfile} className="auth-form">
+                  <label htmlFor="profile-name">Name</label>
+                  <input
+                    id="profile-name"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    placeholder="Full name"
+                    required
+                  />
+
+                  <label htmlFor="profile-email">Email</label>
+                  <input
+                    id="profile-email"
+                    value={currentUser?.email ?? ""}
+                    readOnly
+                    disabled
+                  />
+
+                  <label htmlFor="profile-role">Role</label>
+                  <input
+                    id="profile-role"
+                    value={currentUser?.role ?? "PATIENT"}
+                    readOnly
+                    disabled
+                  />
+
+                  <button type="submit" disabled={isSavingProfile}>
+                    {isSavingProfile ? "Saving..." : "Save Profile"}
+                  </button>
+                </form>
+              </article>
+
+              <article className="panel patient-main-panel">
+                <h2>My Records</h2>
+                <ul className="list">
+                  {patients.length === 0 ? (
+                    <li className="empty">No records found for your account.</li>
+                  ) : (
+                    patients.map((patient) => (
+                      <li key={patient.id} className="list-item">
+                        <p className="item-title">{patient.name}</p>
+                        <p>{patient.age} years, {patient.gender}</p>
+                        <p>{patient.phone}</p>
+                        <p>{patient.address}</p>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
+
+              <article className="panel alerts-panel patient-alerts-panel">
+                <h2>My Alerts</h2>
+                <ul className="list">
+                  {alerts.length === 0 ? (
+                    <li className="empty">No high-risk alerts right now.</li>
+                  ) : (
+                    alerts.map((alert) => (
+                      <li key={alert.id} className="list-item alert-item">
+                        <p className="item-title">{alert.name}</p>
+                        <p>{alert.symptoms}</p>
+                        <span className={`risk-badge ${alert.riskLevel.toLowerCase()}`}>
+                          {alert.riskLevel}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
+            </div>
+          )}
 
           {message && <p className="status-msg">{message}</p>}
         </section>
