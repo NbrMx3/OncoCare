@@ -292,7 +292,7 @@ function App() {
 
   const patientTotal = dashboardStats?.patientCount ?? dashboardStats?.totalPatients ?? patients.length;
   const isDoctor = currentUser?.role === "DOCTOR";
-  const canEditProfile = currentUser?.role === "DOCTOR" || currentUser?.role === "ADMIN";
+  const profileTitle = isDoctor ? "Doctor Profile" : "Profile";
   const dashboardTitle = currentUser?.role === "ADMIN"
     ? "Administrator Dashboard"
     : isDoctor
@@ -464,50 +464,48 @@ function App() {
           )}
 
           <div className="dashboard-grid">
-            {canEditProfile && (
-              <article className="panel profile-panel">
-                <h2>Doctor Profile</h2>
-                <form onSubmit={handleUpdateProfile} className="auth-form">
-                  <label htmlFor="profile-name">Name</label>
-                  <input
-                    id="profile-name"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="Full name"
-                    required
-                  />
+            <article className="panel profile-panel">
+              <h2>{profileTitle}</h2>
+              <form onSubmit={handleUpdateProfile} className="auth-form">
+                <label htmlFor="profile-name">Name</label>
+                <input
+                  id="profile-name"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  placeholder="Full name"
+                  required
+                />
 
-                  <label htmlFor="profile-email">Email</label>
-                  <input
-                    id="profile-email"
-                    value={currentUser?.email ?? ""}
-                    readOnly
-                    disabled
-                  />
+                <label htmlFor="profile-email">Email</label>
+                <input
+                  id="profile-email"
+                  value={currentUser?.email ?? ""}
+                  readOnly
+                  disabled
+                />
 
-                  <label htmlFor="profile-role">Role</label>
-                  <input
-                    id="profile-role"
-                    value={currentUser?.role ?? "PATIENT"}
-                    readOnly
-                    disabled
-                  />
+                <label htmlFor="profile-role">Role</label>
+                <input
+                  id="profile-role"
+                  value={currentUser?.role ?? "PATIENT"}
+                  readOnly
+                  disabled
+                />
 
-                  <label htmlFor="profile-profession">Profession</label>
-                  <input
-                    id="profile-profession"
-                    value={profileProfession}
-                    onChange={(e) => setProfileProfession(e.target.value)}
-                    placeholder="Doctor profession"
-                    disabled={!isDoctor}
-                  />
+                <label htmlFor="profile-profession">Profession</label>
+                <input
+                  id="profile-profession"
+                  value={profileProfession}
+                  onChange={(e) => setProfileProfession(e.target.value)}
+                  placeholder={isDoctor ? "Doctor profession" : "Not applicable for this role"}
+                  disabled={!isDoctor}
+                />
 
-                  <button type="submit" disabled={isSavingProfile}>
-                    {isSavingProfile ? "Saving..." : "Save Profile"}
-                  </button>
-                </form>
-              </article>
-            )}
+                <button type="submit" disabled={isSavingProfile}>
+                  {isSavingProfile ? "Saving..." : "Save Profile"}
+                </button>
+              </form>
+            </article>
 
             {currentUser?.role !== "PATIENT" && (
               <article className="panel">
