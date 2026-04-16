@@ -25,6 +25,7 @@ type RiskAlert = {
 
 type UserProfile = {
   id: string;
+  loginId?: string | null;
   name: string;
   email: string;
   role: Role;
@@ -54,6 +55,7 @@ function App() {
 
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -120,7 +122,7 @@ function App() {
 
     try {
       const data = authMode === "login"
-        ? { email, password }
+        ? { identifier, password }
         : {
             email,
             password,
@@ -131,10 +133,17 @@ function App() {
       const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
       const res = await api.post(endpoint, data);
       const authToken = res.data.token as string;
+      const newUser = res.data.user as UserProfile | undefined;
       localStorage.setItem("token", authToken);
       setToken(authToken);
       await fetchDashboardData(authToken);
-      setMessage(authMode === "login" ? "Login successful." : "Registration successful.");
+      setMessage(
+        authMode === "login"
+          ? "Login successful."
+          : newUser?.loginId
+            ? `Registration successful. Your login ID is ${newUser.loginId}`
+            : "Registration successful.",
+      );
     } catch (error) {
       console.error(error);
       if (axios.isAxiosError(error) && !error.response) {
@@ -360,15 +369,31 @@ function App() {
               </>
             )}
 
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="name@hospital.org"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            {authMode === "login" ? (
+              <>
+                <label htmlFor="identifier">Login ID or Email</label>
+                <input
+                  id="identifier"
+                  type="text"
+                  placeholder="eg: johana or name@hospital.org"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  required
+                />
+              </>
+            ) : (
+              <>
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="name@hospital.org"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </>
+            )}
 
             <label htmlFor="password">Password</label>
             <input
@@ -434,6 +459,7 @@ function App() {
               <span className="hero-label">Profile snapshot</span>
               <strong>{currentUser?.name || "Unknown user"}</strong>
               <p>{currentUser?.email}</p>
+              <p>{currentUser?.loginId ? `ID: ${currentUser.loginId}` : "ID unavailable"}</p>
               <span className="role-pill">{currentUser?.role || "PATIENT"}</span>
             </div>
           </section>
@@ -481,6 +507,14 @@ function App() {
                   <input
                     id="profile-email"
                     value={currentUser?.email ?? ""}
+                    readOnly
+                    disabled
+                  />
+
+                  <label htmlFor="profile-login-id">Login ID</label>
+                  <input
+                    id="profile-login-id"
+                    value={currentUser?.loginId ?? "Not available"}
                     readOnly
                     disabled
                   />
@@ -598,6 +632,29 @@ function App() {
                   )}
                 </ul>
               </article>
+
+              <article className="panel wide-panel">
+                <h2>Patient Dashboard Access</h2>
+                <p className="subtitle">
+                  Doctors can view the same patient records and alert feed available in the patient dashboard.
+                </p>
+                <ul className="list">
+                  {patients.length === 0 ? (
+                    <li className="empty">No patient records available.</li>
+                  ) : (
+                    patients.map((patient) => (
+                      <li key={`doctor-patient-view-${patient.id}`} className="list-item">
+                        <p className="item-title">{patient.name}</p>
+                        <p>
+                          {patient.age} years, {patient.gender}
+                        </p>
+                        <p>{patient.phone}</p>
+                        <p>{patient.address}</p>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
             </div>
           ) : (
             <div className="dashboard-grid patient-dashboard-grid" aria-label="Patient dashboard">
@@ -617,6 +674,14 @@ function App() {
                   <input
                     id="profile-email"
                     value={currentUser?.email ?? ""}
+                    readOnly
+                    disabled
+                  />
+
+                  <label htmlFor="profile-login-id">Login ID</label>
+                  <input
+                    id="profile-login-id"
+                    value={currentUser?.loginId ?? "Not available"}
                     readOnly
                     disabled
                   />

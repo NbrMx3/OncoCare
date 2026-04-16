@@ -23,7 +23,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_CALLBACK_URL =
 	process.env.GOOGLE_CALLBACK_URL || "http://localhost:5101/api/auth/google/callback";
 
-const isMissingProfessionColumnError = (error: unknown): boolean => {
+const isMissingUserOptionalColumnError = (error: unknown): boolean => {
 	if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
 		return false;
 	}
@@ -33,7 +33,7 @@ const isMissingProfessionColumnError = (error: unknown): boolean => {
 	}
 
 	const missingColumn = String(error.meta?.column ?? "").toLowerCase();
-	if (missingColumn.includes("profession")) {
+	if (missingColumn.includes("profession") || missingColumn.includes("loginid")) {
 		return true;
 	}
 
@@ -43,6 +43,44 @@ const isMissingProfessionColumnError = (error: unknown): boolean => {
 	}
 
 	return false;
+};
+
+const buildLoginIdSeed = (fullName: string): string => {
+	const safeParts = fullName
+		.trim()
+		.toLowerCase()
+		.split(/\s+/)
+		.map((part) => part.replace(/[^a-z]/g, ""))
+		.filter(Boolean);
+
+	const first = safeParts[0] ?? "usr";
+	const second = safeParts[1] ?? "xx";
+	return `${first.slice(0, 3).padEnd(3, "x")}${second.slice(0, 2).padEnd(2, "x")}`;
+};
+
+const generateUniqueLoginId = async (fullName: string): Promise<string> => {
+	const seed = buildLoginIdSeed(fullName);
+	let candidate = seed;
+	let suffix = 1;
+
+	while (true) {
+		const existing = await prisma.user.findUnique({
+			where: { loginId: candidate },
+			select: { id: true },
+		}).catch((error: unknown) => {
+			if (!isMissingUserOptionalColumnError(error)) {
+				throw error;
+			}
+			return null;
+		});
+
+		if (!existing) {
+			return candidate;
+		}
+
+		candidate = `${seed}${suffix}`;
+		suffix += 1;
+	}
 };
 
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
@@ -86,14 +124,12 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 		if (userRole === Role.DOCTOR && !normalizedProfession) {
 			return res.status(400).json({ message: "profession is required for doctors" });
 		}
-		const exists = await prisma.user.findUnique({ where: { email } });
-		if (exists) {
-			return res.status(409).json({ message: "email already exists" });
-		}
 
 		const hashed = await bcrypt.hash(password, 10);
+		const loginId = await generateUniqueLoginId(name);
 		const user = await prisma.user.create({
 			data: {
+				loginId,
 				name,
 				email,
 				password: hashed,
@@ -101,6 +137,33 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 				provider: "local",
 				profession: userRole === Role.DOCTOR ? normalizedProfession : null,
 			},
+			select: {
+				id: true,
+				loginId: true,
+				name: true,
+				email: true,
+				role: true,
+			},
+		}).catch(async (error) => {
+			if (!isMissingUserOptionalColumnError(error)) {
+				throw error;
+			}
+
+			return prisma.user.create({
+				data: {
+					name,
+					email,
+					password: hashed,
+					role: userRole,
+					provider: "local",
+				},
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					role: true,
+				},
+			});
 		});
 
 		const token = signToken(user);
@@ -108,6 +171,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 			token,
 			user: {
 				id: user.id,
+				loginId: (user as { loginId?: string | null }).loginId ?? loginId,
 				name: user.name,
 				email: user.email,
 				role: user.role,
@@ -115,6 +179,13 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 			},
 		});
 	} catch (error) {
+		if (
+			error instanceof Prisma.PrismaClientKnownRequestError &&
+			error.code === "P2002"
+		) {
+			return res.status(409).json({ message: "email already exists" });
+		}
+
 		console.error("Auth register failed:", error);
 		return res.status(500).json({ message: "register failed" });
 	}
@@ -122,19 +193,27 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 
 app.post("/api/auth/login", async (req: Request, res: Response) => {
 	try {
-		const { email, password } = req.body as {
+		const { identifier, email, password } = req.body as {
+			identifier?: string;
 			email?: string;
 			password?: string;
 		};
 
-		if (!email || !password) {
-			return res.status(400).json({ message: "email and password are required" });
+		const loginIdentifier = (identifier ?? email ?? "").trim();
+
+		if (!loginIdentifier || !password) {
+			return res.status(400).json({ message: "identifier and password are required" });
 		}
 
-		const user = await prisma.user.findUnique({
-			where: { email },
+		const emailLike = loginIdentifier.includes("@");
+
+		const user = await prisma.user.findFirst({
+			where: {
+				OR: [{ email: loginIdentifier }, { loginId: loginIdentifier.toLowerCase() }],
+			},
 			select: {
 				id: true,
+				loginId: true,
 				email: true,
 				name: true,
 				password: true,
@@ -143,12 +222,16 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 				profession: true,
 			},
 		}).catch(async (error) => {
-			if (!isMissingProfessionColumnError(error)) {
+			if (!isMissingUserOptionalColumnError(error)) {
 				throw error;
 			}
 
+			if (!emailLike) {
+				return null;
+			}
+
 			const legacyUser = await prisma.user.findUnique({
-				where: { email },
+				where: { email: loginIdentifier },
 				select: {
 					id: true,
 					email: true,
@@ -165,6 +248,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 
 			return {
 				...legacyUser,
+				loginId: null,
 				profession: null,
 			};
 		});
@@ -182,6 +266,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			token,
 			user: {
 				id: user.id,
+				loginId: user.loginId,
 				name: user.name,
 				email: user.email,
 				role: user.role,
@@ -222,25 +307,66 @@ app.get(
 				return res.status(400).json({ message: "invalid google profile" });
 			}
 
+			const googleEmail = profile.email;
+			const googleName = profile.name;
+
 			const user = await prisma.user.upsert({
-				where: { email: profile.email },
+				where: { email: googleEmail },
 				create: {
-					name: profile.name,
-					email: profile.email,
+					loginId: await generateUniqueLoginId(googleName),
+					name: googleName,
+					email: googleEmail,
 					role: Role.PATIENT,
 					provider: "google",
 					profession: null,
 				},
 				update: {
-					name: profile.name,
+					name: googleName,
 					provider: "google",
 				},
+				select: {
+					id: true,
+					loginId: true,
+					name: true,
+					email: true,
+					role: true,
+				},
+			}).catch(async (error) => {
+				if (!isMissingUserOptionalColumnError(error)) {
+					throw error;
+				}
+
+				return prisma.user.upsert({
+					where: { email: googleEmail },
+					create: {
+						name: googleName,
+						email: googleEmail,
+						role: Role.PATIENT,
+						provider: "google",
+					},
+					update: {
+						name: googleName,
+						provider: "google",
+					},
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						role: true,
+					},
+				});
 			});
 
 			const token = signToken(user);
 			return res.status(200).json({
 				token,
-				user: { id: user.id, name: user.name, email: user.email, role: user.role },
+				user: {
+					id: user.id,
+					loginId: (user as { loginId?: string | null }).loginId ?? null,
+					name: user.name,
+					email: user.email,
+					role: user.role,
+				},
 			});
 		} catch (error) {
 			console.error("Google callback failed:", error);
@@ -262,9 +388,17 @@ app.get(
 
 			const user = await prisma.user.findUnique({
 				where: { id: userId },
-				select: { id: true, email: true, name: true, role: true, provider: true, profession: true },
+				select: {
+					id: true,
+					loginId: true,
+					email: true,
+					name: true,
+					role: true,
+					provider: true,
+					profession: true,
+				},
 			}).catch(async (error) => {
-				if (!isMissingProfessionColumnError(error)) {
+				if (!isMissingUserOptionalColumnError(error)) {
 					throw error;
 				}
 
@@ -279,6 +413,7 @@ app.get(
 
 				return {
 					...legacyUser,
+					loginId: null,
 					profession: null,
 				};
 			});
@@ -289,6 +424,7 @@ app.get(
 
 			return res.status(200).json({
 				id: user.id,
+				loginId: user.loginId,
 				name: user.name,
 				email: user.email,
 				role: user.role,
@@ -338,6 +474,7 @@ app.put(
 				data: updates,
 				select: {
 					id: true,
+					loginId: true,
 					name: true,
 					email: true,
 					role: true,
