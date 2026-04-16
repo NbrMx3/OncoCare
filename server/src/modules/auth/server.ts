@@ -48,22 +48,22 @@ const isMissingUserOptionalColumnError = (error: unknown): boolean => {
 const buildLoginIdSeed = (fullName: string): string => {
 	const safeParts = fullName
 		.trim()
-		.toLowerCase()
+		.toUpperCase()
 		.split(/\s+/)
-		.map((part) => part.replace(/[^a-z]/g, ""))
+		.map((part) => part.replace(/[^A-Z]/g, ""))
 		.filter(Boolean);
 
-	const first = safeParts[0] ?? "usr";
-	const second = safeParts[1] ?? "xx";
-	return `${first.slice(0, 3).padEnd(3, "x")}${second.slice(0, 2).padEnd(2, "x")}`;
+	const first = safeParts[0] ?? "USR";
+	const second = safeParts[1] ?? "XX";
+	return `M${first.slice(0, 3).padEnd(3, "X")}${second.slice(0, 2).padEnd(2, "X")}`;
 };
 
 const generateUniqueLoginId = async (fullName: string): Promise<string> => {
 	const seed = buildLoginIdSeed(fullName);
-	let candidate = seed;
-	let suffix = 1;
+	let suffix = 1001;
 
 	while (true) {
+		const candidate = `${seed}${suffix}`;
 		const existing = await prisma.user.findUnique({
 			where: { loginId: candidate },
 			select: { id: true },
@@ -78,7 +78,6 @@ const generateUniqueLoginId = async (fullName: string): Promise<string> => {
 			return candidate;
 		}
 
-		candidate = `${seed}${suffix}`;
 		suffix += 1;
 	}
 };
@@ -200,6 +199,12 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 		};
 
 		const loginIdentifier = (identifier ?? email ?? "").trim();
+		const normalizedLoginId = loginIdentifier.toUpperCase();
+		const legacyLowerLoginId = loginIdentifier.toLowerCase();
+		const loginIdCandidates =
+			normalizedLoginId === legacyLowerLoginId
+				? [normalizedLoginId]
+				: [normalizedLoginId, legacyLowerLoginId];
 
 		if (!loginIdentifier || !password) {
 			return res.status(400).json({ message: "identifier and password are required" });
@@ -209,7 +214,10 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 
 		const user = await prisma.user.findFirst({
 			where: {
-				OR: [{ email: loginIdentifier }, { loginId: loginIdentifier.toLowerCase() }],
+				OR: [
+					{ email: loginIdentifier },
+					...loginIdCandidates.map((candidate) => ({ loginId: candidate })),
+				],
 			},
 			select: {
 				id: true,
