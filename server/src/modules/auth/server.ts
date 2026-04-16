@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Request, Response } from "express";
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../prisma";
 import {
 	AuthenticatedRequest,
@@ -22,6 +22,19 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_CALLBACK_URL =
 	process.env.GOOGLE_CALLBACK_URL || "http://localhost:5101/api/auth/google/callback";
+
+const isMissingProfessionColumnError = (error: unknown): boolean => {
+	if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+		return false;
+	}
+
+	if (error.code !== "P2022") {
+		return false;
+	}
+
+	const missingColumn = String(error.meta?.column ?? "").toLowerCase();
+	return missingColumn.includes("profession");
+};
 
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 	passport.use(
@@ -89,7 +102,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 				name: user.name,
 				email: user.email,
 				role: user.role,
-				profession: user.profession,
+				profession: userRole === Role.DOCTOR ? normalizedProfession : null,
 			},
 		});
 	} catch (error) {
@@ -120,6 +133,31 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 				provider: true,
 				profession: true,
 			},
+		}).catch(async (error) => {
+			if (!isMissingProfessionColumnError(error)) {
+				throw error;
+			}
+
+			const legacyUser = await prisma.user.findUnique({
+				where: { email },
+				select: {
+					id: true,
+					email: true,
+					name: true,
+					password: true,
+					role: true,
+					provider: true,
+				},
+			});
+
+			if (!legacyUser) {
+				return null;
+			}
+
+			return {
+				...legacyUser,
+				profession: null,
+			};
 		});
 		if (!user || !user.password) {
 			return res.status(401).json({ message: "invalid credentials" });
@@ -211,9 +249,29 @@ app.get(
 				return res.status(401).json({ message: "unauthorized" });
 			}
 
+			const userId = req.userId;
+
 			const user = await prisma.user.findUnique({
-				where: { id: req.userId },
+				where: { id: userId },
 				select: { id: true, email: true, name: true, role: true, provider: true, profession: true },
+			}).catch(async (error) => {
+				if (!isMissingProfessionColumnError(error)) {
+					throw error;
+				}
+
+				const legacyUser = await prisma.user.findUnique({
+					where: { id: userId },
+					select: { id: true, email: true, name: true, role: true, provider: true },
+				});
+
+				if (!legacyUser) {
+					return null;
+				}
+
+				return {
+					...legacyUser,
+					profession: null,
+				};
 			});
 
 			if (!user) {
