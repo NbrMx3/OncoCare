@@ -33,7 +33,16 @@ const isMissingProfessionColumnError = (error: unknown): boolean => {
 	}
 
 	const missingColumn = String(error.meta?.column ?? "").toLowerCase();
-	return missingColumn.includes("profession");
+	if (missingColumn.includes("profession")) {
+		return true;
+	}
+
+	const modelName = String(error.meta?.modelName ?? "").toLowerCase();
+	if (modelName === "user" && (missingColumn === "" || missingColumn === "(not available)")) {
+		return true;
+	}
+
+	return false;
 };
 
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
