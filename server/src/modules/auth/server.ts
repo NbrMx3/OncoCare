@@ -45,11 +45,12 @@ app.use(passport.initialize());
 
 app.post("/api/auth/register", async (req: Request, res: Response) => {
 	try {
-		const { name, email, password, role } = req.body as {
+		const { name, email, password, role, profession } = req.body as {
 			name?: string;
 			email?: string;
 			password?: string;
 			role?: Role;
+			profession?: string;
 		};
 
 		if (!name || !email || !password) {
@@ -59,6 +60,10 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 		}
 
 		const userRole = role ?? Role.PATIENT;
+		const normalizedProfession = profession?.trim() || null;
+		if (userRole === Role.DOCTOR && !normalizedProfession) {
+			return res.status(400).json({ message: "profession is required for doctors" });
+		}
 		const exists = await prisma.user.findUnique({ where: { email } });
 		if (exists) {
 			return res.status(409).json({ message: "email already exists" });
@@ -72,13 +77,20 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 				password: hashed,
 				role: userRole,
 				provider: "local",
+				profession: userRole === Role.DOCTOR ? normalizedProfession : null,
 			},
 		});
 
 		const token = signToken(user);
 		return res.status(201).json({
 			token,
-			user: { id: user.id, name: user.name, email: user.email, role: user.role },
+			user: {
+				id: user.id,
+				name: user.name,
+				email: user.email,
+				role: user.role,
+				profession: user.profession,
+			},
 		});
 	} catch (error) {
 		console.error("Auth register failed:", error);
@@ -106,6 +118,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 				password: true,
 				role: true,
 				provider: true,
+				profession: true,
 			},
 		});
 		if (!user || !user.password) {
@@ -126,6 +139,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 				email: user.email,
 				role: user.role,
 				provider: user.provider,
+				profession: user.profession,
 			},
 		});
 	} catch (error) {
@@ -168,6 +182,7 @@ app.get(
 					email: profile.email,
 					role: Role.PATIENT,
 					provider: "google",
+					profession: null,
 				},
 				update: {
 					name: profile.name,
@@ -198,7 +213,7 @@ app.get(
 
 			const user = await prisma.user.findUnique({
 				where: { id: req.userId },
-				select: { id: true, email: true, name: true, role: true, provider: true },
+				select: { id: true, email: true, name: true, role: true, provider: true, profession: true },
 			});
 
 			if (!user) {
@@ -211,10 +226,63 @@ app.get(
 				email: user.email,
 				role: user.role,
 				provider: user.provider,
+				profession: user.profession,
 			});
 		} catch (error) {
 			console.error("Auth me failed:", error);
 			return res.status(500).json({ message: "fetch profile failed" });
+		}
+	},
+);
+
+app.put(
+	"/api/auth/me",
+	authenticateToken,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			if (!req.userId) {
+				return res.status(401).json({ message: "unauthorized" });
+			}
+
+			const { name, profession } = req.body as {
+				name?: string;
+				profession?: string | null;
+			};
+
+			const updates: {
+				name?: string;
+				profession?: string | null;
+			} = {};
+
+			if (typeof name === "string" && name.trim()) {
+				updates.name = name.trim();
+			}
+
+			if (profession !== undefined) {
+				updates.profession = profession?.trim() ? profession.trim() : null;
+			}
+
+			if (Object.keys(updates).length === 0) {
+				return res.status(400).json({ message: "no profile updates provided" });
+			}
+
+			const user = await prisma.user.update({
+				where: { id: req.userId },
+				data: updates,
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					role: true,
+					provider: true,
+					profession: true,
+				},
+			});
+
+			return res.status(200).json(user);
+		} catch (error) {
+			console.error("Update profile failed:", error);
+			return res.status(500).json({ message: "update profile failed" });
 		}
 	},
 );

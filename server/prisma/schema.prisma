@@ -36,6 +36,7 @@ model User {
   password           String?
   role               Role
   provider           String?
+  profession         String?
   createdAt          DateTime      @default(now())
   patients           Patient[]     @relation("UserPatients")
   doctorAppointments Appointment[] @relation("DoctorAppointments")

@@ -53,6 +53,7 @@ app.get(
 
 			return res.status(200).json({
 				totalPatients: patients,
+				patientCount: patients,
 				totalAssessments: assessments.length,
 				totalAppointments: appointments,
 				missedAppointments,
