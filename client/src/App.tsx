@@ -174,20 +174,30 @@ function App() {
       });
       const authToken = res.data.token as string;
       const newUser = res.data.user as UserProfile | undefined;
-      localStorage.setItem("token", authToken);
-      setToken(authToken);
-      await fetchDashboardData(authToken);
-      setMessage(
+      const successMessage =
         authMode === "login"
           ? "Login successful."
           : newUser?.loginId
             ? `Registration successful. Your login ID is ${newUser.loginId}`
-            : "Registration successful.",
-      );
+            : "Registration successful.";
+      localStorage.setItem("token", authToken);
+      setToken(authToken);
+      setMessage(successMessage);
+
+      try {
+        await fetchDashboardData(authToken);
+        setMessage(successMessage);
+      } catch (refreshError) {
+        console.error(refreshError);
+        setMessage(`${successMessage} Dashboard data could not be loaded right now.`);
+      }
     } catch (error) {
       console.error(error);
       if (axios.isAxiosError(error) && !error.response) {
         setMessage("Network error. Set VITE_API_BASE_URL to your backend URL.");
+      } else if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const apiMessage = (error.response.data as { message?: string } | undefined)?.message;
+        setMessage(apiMessage || "This email is already registered. Please sign in instead.");
       } else if (axios.isAxiosError(error) && error.response?.status === 502) {
         setMessage("Backend unavailable (502). Start backend with: cd server && node server.js");
       } else if (axios.isAxiosError(error) && error.response?.status === 405) {

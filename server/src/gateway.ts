@@ -7,7 +7,29 @@ dotenv.config();
 const app = express();
 const port = Number(process.env.PORT) || Number(process.env.GATEWAY_PORT) || 5000;
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || "")
+	.split(",")
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+
+const corsOptions: cors.CorsOptions = {
+	origin: (origin, callback) => {
+		if (!origin) {
+			return callback(null, true);
+		}
+
+		if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+			return callback(null, true);
+		}
+
+		return callback(new Error("Not allowed by CORS"));
+	},
+	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+	allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 const serviceUrl = (
@@ -107,6 +129,10 @@ const pickTarget = (path: string): string | undefined => {
 };
 
 const proxyRequest = async (req: Request, res: Response) => {
+	if (req.method.toUpperCase() === "OPTIONS") {
+		return res.status(204).send();
+	}
+
 	const target = pickTarget(req.path);
 	if (!target) {
 		return res.status(404).json({ message: "no module route for this endpoint" });
@@ -139,6 +165,15 @@ const proxyRequest = async (req: Request, res: Response) => {
 		const text = await response.text();
 		const contentType = response.headers.get("content-type") || "application/json";
 		res.status(response.status);
+
+		for (const [header, value] of response.headers.entries()) {
+			const normalized = header.toLowerCase();
+			if (["content-length", "connection", "keep-alive", "transfer-encoding"].includes(normalized)) {
+				continue;
+			}
+			res.setHeader(header, value);
+		}
+
 		res.setHeader("content-type", contentType);
 		return res.send(text);
 	} catch (error) {

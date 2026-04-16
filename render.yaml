@@ -8,6 +8,8 @@ services:
     startCommand: npm run start:gateway
     autoDeploy: true
     envVars:
+      - key: CORS_ORIGINS
+        value: http://localhost:5173
       - key: AUTH_SERVICE_HOST
         fromService:
           type: pserv

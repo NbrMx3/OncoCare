@@ -82,6 +82,31 @@ const generateUniqueLoginId = async (fullName: string): Promise<string> => {
 	}
 };
 
+const ensureUserHasLoginId = async (
+	userId: string,
+	fullName: string,
+	existingLoginId?: string | null,
+): Promise<string | null> => {
+	if (existingLoginId) {
+		return existingLoginId;
+	}
+
+	const generatedLoginId = await generateUniqueLoginId(fullName);
+
+	const updated = await prisma.user.update({
+		where: { id: userId },
+		data: { loginId: generatedLoginId },
+		select: { loginId: true },
+	}).catch((error: unknown) => {
+		if (!isMissingUserOptionalColumnError(error)) {
+			throw error;
+		}
+		return null;
+	});
+
+	return updated?.loginId ?? null;
+};
+
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
 	passport.use(
 		new GoogleStrategy(
@@ -165,12 +190,18 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 			});
 		});
 
+		const ensuredLoginId = await ensureUserHasLoginId(
+			user.id,
+			user.name,
+			(user as { loginId?: string | null }).loginId,
+		);
+
 		const token = signToken(user);
 		return res.status(201).json({
 			token,
 			user: {
 				id: user.id,
-				loginId: (user as { loginId?: string | null }).loginId ?? loginId,
+				loginId: ensuredLoginId,
 				name: user.name,
 				email: user.email,
 				role: user.role,
@@ -269,12 +300,14 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			return res.status(401).json({ message: "invalid credentials" });
 		}
 
+		const ensuredLoginId = await ensureUserHasLoginId(user.id, user.name, user.loginId);
+
 		const token = signToken({ id: user.id, role: user.role });
 		return res.status(200).json({
 			token,
 			user: {
 				id: user.id,
-				loginId: user.loginId,
+				loginId: ensuredLoginId,
 				name: user.name,
 				email: user.email,
 				role: user.role,
@@ -430,9 +463,11 @@ app.get(
 				return res.status(404).json({ message: "user not found" });
 			}
 
+			const ensuredLoginId = await ensureUserHasLoginId(user.id, user.name, user.loginId);
+
 			return res.status(200).json({
 				id: user.id,
-				loginId: user.loginId,
+				loginId: ensuredLoginId,
 				name: user.name,
 				email: user.email,
 				role: user.role,
