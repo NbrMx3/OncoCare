@@ -194,6 +194,14 @@
   gap: 14px;
 }
 
+.doctor-dashboard-grid .profile-panel {
+  grid-column: span 4;
+}
+
+.doctor-dashboard-grid .wide-panel {
+  grid-column: span 8;
+}
+
 .panel {
   grid-column: span 4;
   border-radius: 16px;
