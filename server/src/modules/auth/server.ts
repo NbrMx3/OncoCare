@@ -45,7 +45,19 @@ const isMissingUserOptionalColumnError = (error: unknown): boolean => {
 	return false;
 };
 
-const buildLoginIdSeed = (fullName: string): string => {
+const getLoginIdPrefix = (role: Role): string => {
+	if (role === Role.DOCTOR) {
+		return "D";
+	}
+
+	if (role === Role.ADMIN) {
+		return "A";
+	}
+
+	return "P";
+};
+
+const buildLoginIdSeed = (fullName: string, role: Role): string => {
 	const safeParts = fullName
 		.trim()
 		.toUpperCase()
@@ -55,11 +67,12 @@ const buildLoginIdSeed = (fullName: string): string => {
 
 	const first = safeParts[0] ?? "USR";
 	const second = safeParts[1] ?? "XX";
-	return `M${first.slice(0, 3).padEnd(3, "X")}${second.slice(0, 2).padEnd(2, "X")}`;
+	const prefix = getLoginIdPrefix(role);
+	return `${prefix}${first.slice(0, 3).padEnd(3, "X")}${second.slice(0, 2).padEnd(2, "X")}`;
 };
 
-const generateUniqueLoginId = async (fullName: string): Promise<string> => {
-	const seed = buildLoginIdSeed(fullName);
+const generateUniqueLoginId = async (fullName: string, role: Role): Promise<string> => {
+	const seed = buildLoginIdSeed(fullName, role);
 	let suffix = 1001;
 
 	while (true) {
@@ -85,13 +98,14 @@ const generateUniqueLoginId = async (fullName: string): Promise<string> => {
 const ensureUserHasLoginId = async (
 	userId: string,
 	fullName: string,
+	role: Role,
 	existingLoginId?: string | null,
 ): Promise<string | null> => {
 	if (existingLoginId) {
 		return existingLoginId;
 	}
 
-	const generatedLoginId = await generateUniqueLoginId(fullName);
+	const generatedLoginId = await generateUniqueLoginId(fullName, role);
 
 	const updated = await prisma.user.update({
 		where: { id: userId },
@@ -150,7 +164,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 		}
 
 		const hashed = await bcrypt.hash(password, 10);
-		const loginId = await generateUniqueLoginId(name);
+		const loginId = await generateUniqueLoginId(name, userRole);
 		const user = await prisma.user.create({
 			data: {
 				loginId,
@@ -193,6 +207,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 		const ensuredLoginId = await ensureUserHasLoginId(
 			user.id,
 			user.name,
+			userRole,
 			(user as { loginId?: string | null }).loginId,
 		);
 
@@ -300,7 +315,12 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 			return res.status(401).json({ message: "invalid credentials" });
 		}
 
-		const ensuredLoginId = await ensureUserHasLoginId(user.id, user.name, user.loginId);
+		const ensuredLoginId = await ensureUserHasLoginId(
+			user.id,
+			user.name,
+			user.role,
+			user.loginId,
+		);
 
 		const token = signToken({ id: user.id, role: user.role });
 		return res.status(200).json({
@@ -354,7 +374,7 @@ app.get(
 			const user = await prisma.user.upsert({
 				where: { email: googleEmail },
 				create: {
-					loginId: await generateUniqueLoginId(googleName),
+					loginId: await generateUniqueLoginId(googleName, Role.PATIENT),
 					name: googleName,
 					email: googleEmail,
 					role: Role.PATIENT,
@@ -463,7 +483,12 @@ app.get(
 				return res.status(404).json({ message: "user not found" });
 			}
 
-			const ensuredLoginId = await ensureUserHasLoginId(user.id, user.name, user.loginId);
+			const ensuredLoginId = await ensureUserHasLoginId(
+				user.id,
+				user.name,
+				user.role,
+				user.loginId,
+			);
 
 			return res.status(200).json({
 				id: user.id,

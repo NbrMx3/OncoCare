@@ -261,6 +261,34 @@ h1 {
   gap: 10px;
 }
 
+.role-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.role-pill-button {
+  border: 1px solid rgba(78, 163, 251, 0.38);
+  border-radius: 999px;
+  background: rgba(8, 40, 76, 0.7);
+  color: #c7e1f5;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.role-pill-button.active {
+  background: rgba(8, 221, 181, 0.18);
+  border-color: rgba(8, 221, 181, 0.5);
+  color: #7df6db;
+}
+
+.helper-text {
+  margin: 0 0 6px;
+  color: #9dc3e5;
+  font-size: 0.85rem;
+}
+
 .auth-form label {
   color: #b9d6ef;
   font-size: 0.85rem;
