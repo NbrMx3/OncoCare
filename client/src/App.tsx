@@ -18,6 +18,7 @@ type Patient = {
 
 type RiskAlert = {
   id: string;
+  patientId?: string;
   name: string;
   symptoms: string;
   riskLevel: RiskLevel;
@@ -60,7 +61,7 @@ type MonitoringFlagsResponse = {
     id: string;
     symptoms: string;
     riskLevel: RiskLevel;
-    patient?: { name?: string };
+    patient?: { id?: string; name?: string };
   }>;
 };
 
@@ -375,6 +376,8 @@ function App() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [profileName, setProfileName] = useState("");
   const [profileProfession, setProfileProfession] = useState("");
+  const [dashboardView, setDashboardView] = useState<"doctor" | "patient">("doctor");
+  const [selectedPatientId, setSelectedPatientId] = useState("");
 
   const fetchDashboardData = useCallback(async (authToken: string) => {
     const headers = { Authorization: `Bearer ${authToken}` };
@@ -399,6 +402,7 @@ function App() {
 
     const highRisk = ((flagsRes.data as MonitoringFlagsResponse).highRiskAssessments ?? []).map((row) => ({
       id: row.id,
+      patientId: row.patient?.id,
       name: row.patient?.name ?? "Unknown patient",
       symptoms: row.symptoms,
       riskLevel: row.riskLevel,
@@ -608,6 +612,8 @@ function App() {
     setCurrentUser(null);
     setProfileName("");
     setProfileProfession("");
+    setDashboardView("doctor");
+    setSelectedPatientId("");
     setMessage("You have been signed out.");
   };
 
@@ -625,6 +631,7 @@ function App() {
   const isDoctor = currentUser?.role === "DOCTOR";
   const isAdmin = currentUser?.role === "ADMIN";
   const isDoctorWorkspace = isDoctor || isAdmin;
+  const isPatientView = isDoctorWorkspace && dashboardView === "patient";
   const loginRoleLabel = role === "DOCTOR" ? "Doctor" : "Patient";
   const loginIdentifierLabel = `${loginRoleLabel} Login ID or Email`;
   const loginIdentifierPlaceholder = role === "DOCTOR"
@@ -632,26 +639,56 @@ function App() {
     : "eg: PJOHAX1001 or name@hospital.org";
   const patientTotal = dashboardStats?.patientCount ?? dashboardStats?.totalPatients ?? patients.length;
   const doctorTitle = isAdmin ? "Administrator Dashboard" : "Doctor Dashboard";
-  const dashboardTheme = token ? (isDoctorWorkspace ? "doctor-theme" : "patient-theme") : "auth-theme";
+  const dashboardTheme = token
+    ? (isPatientView ? "patient-theme" : isDoctorWorkspace ? "doctor-theme" : "patient-theme")
+    : "auth-theme";
   const riskLevels = dashboardStats?.riskLevels ?? emptyRiskLevels;
   const riskTotal = riskLevels.LOW + riskLevels.MEDIUM + riskLevels.HIGH;
   const highRiskShare = riskTotal > 0 ? Math.round((riskLevels.HIGH / riskTotal) * 100) : 0;
 
+  useEffect(() => {
+    if (!isDoctorWorkspace) {
+      setDashboardView("doctor");
+      setSelectedPatientId("");
+    }
+  }, [isDoctorWorkspace]);
+
+  useEffect(() => {
+    if (!isDoctorWorkspace || dashboardView !== "patient") {
+      return;
+    }
+
+    if (!selectedPatientId && patients[0]) {
+      setSelectedPatientId(patients[0].id);
+    }
+  }, [dashboardView, isDoctorWorkspace, patients, selectedPatientId]);
+
+  const viewPatientId = isPatientView ? (selectedPatientId || patients[0]?.id || "") : "";
+  const viewPatients = isPatientView
+    ? patients.filter((patient) => patient.id === viewPatientId)
+    : patients;
+  const viewAppointments = isPatientView
+    ? appointments.filter((appointment) => appointment.patientId === viewPatientId)
+    : appointments;
+  const viewAlerts = isPatientView
+    ? alerts.filter((alert) => alert.patientId === viewPatientId)
+    : alerts;
+
   const upcomingAppointments = useMemo(
-    () => appointments
+    () => viewAppointments
       .filter((appointment) => appointment.status === "SCHEDULED")
       .slice()
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5),
-    [appointments],
+    [viewAppointments],
   );
   const missedAppointments = useMemo(
-    () => appointments.filter((appointment) => appointment.status === "MISSED"),
-    [appointments],
+    () => viewAppointments.filter((appointment) => appointment.status === "MISSED"),
+    [viewAppointments],
   );
   const completedAppointments = useMemo(
-    () => appointments.filter((appointment) => appointment.status === "COMPLETED"),
-    [appointments],
+    () => viewAppointments.filter((appointment) => appointment.status === "COMPLETED"),
+    [viewAppointments],
   );
   const recentPatients = useMemo(() => patients.slice(0, 6), [patients]);
   const trendEntries = useMemo(
@@ -661,8 +698,8 @@ function App() {
     [dashboardStats?.trends],
   );
   const trendMax = Math.max(1, ...trendEntries.map(([, count]) => count));
-  const primaryPatient = patients[0];
-  const careStatus = alerts.length > 0
+  const primaryPatient = viewPatients[0];
+  const careStatus = viewAlerts.length > 0
     ? "Follow-up needed"
     : upcomingAppointments.length > 0
       ? "Visit scheduled"
@@ -813,15 +850,52 @@ function App() {
           <header className="workspace-topbar">
             <div className="brand-lockup">
               <img src="/oncocare_ai_logo.svg" alt="OncoCare AI" className="brand-logo mini" />
-              <span>{currentUser?.role ?? "Workspace"}</span>
+              <span>{isPatientView ? "Patient View" : currentUser?.role ?? "Workspace"}</span>
             </div>
             <div className="dashboard-actions">
+              {isDoctorWorkspace && (
+                <div className="view-toggle" role="group" aria-label="Dashboard view">
+                  <button
+                    type="button"
+                    className={dashboardView === "doctor" ? "role-pill-button active" : "role-pill-button"}
+                    onClick={() => setDashboardView("doctor")}
+                  >
+                    Doctor
+                  </button>
+                  <button
+                    type="button"
+                    className={dashboardView === "patient" ? "role-pill-button active" : "role-pill-button"}
+                    onClick={() => setDashboardView("patient")}
+                    disabled={patients.length === 0}
+                  >
+                    Patient
+                  </button>
+                </div>
+              )}
+              {isDoctorWorkspace && dashboardView === "patient" && (
+                <label className="view-select">
+                  <span>Patient</span>
+                  <select
+                    value={viewPatientId}
+                    onChange={(event) => setSelectedPatientId(event.target.value)}
+                    disabled={patients.length === 0}
+                  >
+                    {patients.length === 0 ? (
+                      <option value="">No patients</option>
+                    ) : (
+                      patients.map((patient) => (
+                        <option key={patient.id} value={patient.id}>{patient.name}</option>
+                      ))
+                    )}
+                  </select>
+                </label>
+              )}
               <button type="button" onClick={handleLoadDashboard}>Refresh</button>
               <button type="button" className="ghost" onClick={handleLogout}>Log Out</button>
             </div>
           </header>
 
-          {isDoctorWorkspace ? (
+          {isDoctorWorkspace && !isPatientView ? (
             <div className="doctor-layout">
               <aside className="doctor-sidebar" aria-label="Clinical summary">
                 <div className="avatar">{getInitials(currentUser?.name)}</div>
@@ -997,7 +1071,7 @@ function App() {
                   <p className="eyebrow">Personal care</p>
                   <h1>Patient Dashboard</h1>
                   <p className="subtitle">
-                    {currentUser?.name || "Patient"} has {patients.length} care record{patients.length === 1 ? "" : "s"} and {alerts.length} open alert{alerts.length === 1 ? "" : "s"}.
+                    {primaryPatient?.name || currentUser?.name || "Patient"} has {viewPatients.length} care record{viewPatients.length === 1 ? "" : "s"} and {viewAlerts.length} open alert{viewAlerts.length === 1 ? "" : "s"}.
                   </p>
                 </div>
                 <div className="care-status">
@@ -1008,10 +1082,10 @@ function App() {
               </section>
 
               <section className="patient-metrics" aria-label="Patient statistics">
-                <MetricCard label="Records" value={patients.length} detail="Care profiles" tone="mint" />
-                <MetricCard label="Appointments" value={appointments.length} detail="Total visits" tone="blue" />
+                <MetricCard label="Records" value={viewPatients.length} detail="Care profiles" tone="mint" />
+                <MetricCard label="Appointments" value={viewAppointments.length} detail="Total visits" tone="blue" />
                 <MetricCard label="Completed" value={completedAppointments.length} detail="Finished visits" tone="gold" />
-                <MetricCard label="Alerts" value={alerts.length} detail="Need attention" tone="coral" />
+                <MetricCard label="Alerts" value={viewAlerts.length} detail="Need attention" tone="coral" />
               </section>
 
               <section className="patient-board">
@@ -1052,13 +1126,13 @@ function App() {
                 <article className="panel patient-alert-panel">
                   <div className="panel-heading">
                     <h2>Alerts</h2>
-                    <span>{alerts.length} open</span>
+                    <span>{viewAlerts.length} open</span>
                   </div>
                   <ul className="list">
-                    {alerts.length === 0 ? (
+                    {viewAlerts.length === 0 ? (
                       <li className="empty">No high-risk alerts right now.</li>
                     ) : (
-                      alerts.map((alert) => (
+                      viewAlerts.map((alert) => (
                         <li key={alert.id} className="alert-row">
                           <div>
                             <p className="item-title">{alert.name}</p>
@@ -1074,13 +1148,13 @@ function App() {
                 <article className="panel patient-schedule-panel">
                   <div className="panel-heading">
                     <h2>Appointments</h2>
-                    <span>{appointments.length} total</span>
+                    <span>{viewAppointments.length} total</span>
                   </div>
                   <ul className="list">
-                    {appointments.length === 0 ? (
+                    {viewAppointments.length === 0 ? (
                       <li className="empty">No appointments recorded.</li>
                     ) : (
-                      appointments.map((appointment) => (
+                      viewAppointments.map((appointment) => (
                         <AppointmentRow key={appointment.id} appointment={appointment} />
                       ))
                     )}

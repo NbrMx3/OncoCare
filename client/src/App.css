@@ -81,6 +81,33 @@
   gap: 10px;
 }
 
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.view-select {
+  display: grid;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5a6a78;
+}
+
+.view-select select {
+  min-height: 38px;
+  border: 1px solid #ccd8df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17212b;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 10px;
+}
+
 h1,
 h2,
 p {
