@@ -875,6 +875,18 @@ button:disabled {
   }
 }
 
+@media (max-width: 980px) {
+  .workspace-topbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .dashboard-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 12px;
