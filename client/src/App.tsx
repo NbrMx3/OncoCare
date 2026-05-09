@@ -353,6 +353,9 @@ function PatientRecordForm({
 function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [themeMode, setThemeMode] = useState<"default" | "light" | "dark">(
+    (localStorage.getItem("themeMode") as "default" | "light" | "dark") || "default",
+  );
   const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -628,6 +631,10 @@ function App() {
     });
   }, [fetchDashboardData, token]);
 
+  useEffect(() => {
+    localStorage.setItem("themeMode", themeMode);
+  }, [themeMode]);
+
   const isDoctor = currentUser?.role === "DOCTOR";
   const isAdmin = currentUser?.role === "ADMIN";
   const isDoctorWorkspace = isDoctor || isAdmin;
@@ -655,12 +662,21 @@ function App() {
 
   useEffect(() => {
     if (!isDoctorWorkspace || dashboardView !== "patient") {
-      return;
-    }
+      return (
+        <main className={`app-shell ${dashboardTheme} theme-${themeMode}`}>
 
     if (!selectedPatientId && patients[0]) {
-      setSelectedPatientId(patients[0].id);
-    }
+              <div className="auth-topbar">
+                <img src="/oncocare_ai_logo.svg" alt="OncoCare AI" className="brand-logo" />
+                <label className="theme-select">
+                  <span>Theme</span>
+                  <select value={themeMode} onChange={(event) => setThemeMode(event.target.value as typeof themeMode)}>
+                    <option value="default">Default</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </label>
+              </div>
   }, [dashboardView, isDoctorWorkspace, patients, selectedPatientId]);
 
   const viewPatientId = isPatientView ? (selectedPatientId || patients[0]?.id || "") : "";
@@ -853,6 +869,14 @@ function App() {
               <span>{isPatientView ? "Patient View" : currentUser?.role ?? "Workspace"}</span>
             </div>
             <div className="dashboard-actions">
+              <label className="theme-select">
+                <span>Theme</span>
+                <select value={themeMode} onChange={(event) => setThemeMode(event.target.value as typeof themeMode)}>
+                  <option value="default">Default</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
               {isDoctorWorkspace && (
                 <div className="view-toggle" role="group" aria-label="Dashboard view">
                   <button
